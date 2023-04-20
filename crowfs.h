@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <sys/types.h>
 
 #ifndef CROWFS_CROWFS_H
 #define CROWFS_CROWFS_H
@@ -77,7 +78,7 @@ void crow_fs_tree(const struct crow_fs_directory *root);
  * @param entry The entry to fill the info of file in it.
  * @return 0 if everything is ok. Otherwise the error value.
  */
-int crow_fs_get_entry(const struct crow_fs_directory *root, const char *path, struct crow_fs_entry *entry);
+int crow_fs_get_entry(struct crow_fs_directory *root, const char *path, struct crow_fs_entry *entry);
 
 /**
  * Create a file in specified path.
@@ -92,6 +93,30 @@ int crow_fs_create_file(struct crow_fs_directory *root, const char *path, size_t
  * Creates a new folder in a path
  * @param root The root of file system
  * @param path The path to create the folder in
- * @return 0 is everything is ok.
+ * @return 0 if everything is ok.
  */
 int crow_fs_create_folder(struct crow_fs_directory *root, const char *path);
+
+/**
+ * Writes to a file, inflates it if needed
+ * @param root The root of file system
+ * @param path The file to write to
+ * @param buffer_size Buffer size to write to
+ * @param buffer The buffer to write to file
+ * @param offset The offset to write the buffer in file
+ * @return 0 if everything is ok.
+ */
+int
+crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_size, const char *buffer, off_t offset);
+
+/**
+ * Reads from a file system
+ * @param root The root of file system
+ * @param path The file to read from
+ * @param buffer_size Buffer size to read to
+ * @param buffer The buffer to read into
+ * @param offset The offset to read the buffer from file
+ * @return 0 if everything is ok. On error, returns the negative value of errno (just like fuse). On Success, returns the bytes read.
+ */
+int
+crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset);

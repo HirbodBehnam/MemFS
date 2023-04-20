@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include "crowfs.h"
 
+#define MIN(x, y) ((x < y) ? (x) : (y))
+
 /**
  * Checks if a string is an empty string or not.
  * @param string The string to check.
@@ -40,6 +42,47 @@ static void crow_fs_tree_internal(const struct crow_fs_directory *root, int dept
     }
 }
 
+/**
+ * Write a buffer to file, inflating the buffer if needed
+ * @param file The file to write to
+ * @param buffer_size Size of buffer to write
+ * @param buffer The buffer itself
+ * @param offset Offset to write to
+ * @return 0 if everything was ok
+ */
+static int write_to_file(struct crow_fs_file *file, size_t buffer_size, const char *buffer, off_t offset) {
+    // Check size of buffer
+    if (offset + buffer_size > file->size) {
+        // Try to make the buffer bigger
+        char *new_data = realloc(file->data, offset + buffer_size);
+        if (new_data == NULL)
+            return ENOSPC;
+        file->size = offset + buffer_size;
+        file->data = new_data;
+    }
+    // Just copy to buffer
+    memcpy(file->data + offset, buffer, buffer_size);
+    return (int) buffer_size;
+}
+
+/**
+ * Reads a buffer from a file
+ * @param file The file to read from
+ * @param buffer_size The buffer size to read to
+ * @param buffer The buffer to read to
+ * @param offset The offset of the file to read to
+ * @return Bytes read. This function is error free
+ */
+static int read_from_file(const struct crow_fs_file *file, size_t buffer_size, char *buffer, off_t offset) {
+    // Bound check
+    if (offset > file->size)
+        return 0;
+    // Get the size to copy
+    size_t to_copy_size = MIN(buffer_size, file->size - offset);
+    memcpy(buffer, file->data + offset, to_copy_size);
+    return (int) to_copy_size;
+}
+
 void crow_fs_new(struct crow_fs_directory *root) {
     root->entries = NULL; // we only set the root to null. (no files in this folder)
 }
@@ -49,7 +92,7 @@ void crow_fs_tree(const struct crow_fs_directory *root) {
     crow_fs_tree_internal(root, 1);
 }
 
-int crow_fs_get_entry(const struct crow_fs_directory *root, const char *path, struct crow_fs_entry *entry) {
+int crow_fs_get_entry(struct crow_fs_directory *root, const char *path, struct crow_fs_entry *entry) {
     // Check literal root folder
     if (strcmp("/", path) == 0) {
         strcpy(entry->name, "/");
@@ -209,4 +252,34 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
     new_entry->next = root->entries;
     root->entries = new_entry;
     return 0;
+}
+
+int
+crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_size, const char *buffer, off_t offset) {
+    // Get the file
+    struct crow_fs_entry entry;
+    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    if (get_entry_status != 0)
+        return get_entry_status;
+    // TODO: read link if needed?
+    // Check if this is a file
+    if (entry.type == CROW_FS_FOLDER)
+        return EISDIR;
+    // Write to file
+    return write_to_file(entry.data.file, buffer_size, buffer, offset);
+}
+
+int
+crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset) {
+    // Get the file
+    struct crow_fs_entry entry;
+    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    if (get_entry_status != 0)
+        return get_entry_status;
+    // TODO: read link if needed?
+    // Check if this is a file
+    if (entry.type == CROW_FS_FOLDER)
+        return EISDIR;
+    // Read
+    return read_from_file(entry.data.file, buffer_size, buffer, offset);
 }
