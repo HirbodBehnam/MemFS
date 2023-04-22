@@ -104,7 +104,7 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path);
  * @param buffer_size Buffer size to write to
  * @param buffer The buffer to write to file
  * @param offset The offset to write the buffer in file
- * @return 0 if everything is ok.
+ * @return Negative value on error or bytes written to disk
  */
 int
 crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_size, const char *buffer, off_t offset);
@@ -116,7 +116,7 @@ crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_si
  * @param buffer_size Buffer size to read to
  * @param buffer The buffer to read into
  * @param offset The offset to read the buffer from file
- * @return 0 if everything is ok. On error, returns the negative value of errno (just like fuse). On Success, returns the bytes read.
+ * @return On error, returns the negative value of errno (just like fuse). On Success, returns the bytes read.
  */
 int
 crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset);

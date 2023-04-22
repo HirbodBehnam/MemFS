@@ -48,7 +48,7 @@ static void crow_fs_tree_internal(const struct crow_fs_directory *root, int dept
  * @param buffer_size Size of buffer to write
  * @param buffer The buffer itself
  * @param offset Offset to write to
- * @return 0 if everything was ok
+ * @return Bytes written or negative value on error
  */
 static int write_to_file(struct crow_fs_file *file, size_t buffer_size, const char *buffer, off_t offset) {
     // Check size of buffer
@@ -56,7 +56,7 @@ static int write_to_file(struct crow_fs_file *file, size_t buffer_size, const ch
         // Try to make the buffer bigger
         char *new_data = realloc(file->data, offset + buffer_size);
         if (new_data == NULL)
-            return ENOSPC;
+            return -ENOSPC;
         file->size = offset + buffer_size;
         file->data = new_data;
     }
@@ -260,11 +260,11 @@ crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_si
     struct crow_fs_entry entry;
     int get_entry_status = crow_fs_get_entry(root, path, &entry);
     if (get_entry_status != 0)
-        return get_entry_status;
+        return -get_entry_status;
     // TODO: read link if needed?
     // Check if this is a file
     if (entry.type == CROW_FS_FOLDER)
-        return EISDIR;
+        return -EISDIR;
     // Write to file
     return write_to_file(entry.data.file, buffer_size, buffer, offset);
 }
@@ -275,11 +275,11 @@ crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_siz
     struct crow_fs_entry entry;
     int get_entry_status = crow_fs_get_entry(root, path, &entry);
     if (get_entry_status != 0)
-        return get_entry_status;
+        return -get_entry_status;
     // TODO: read link if needed?
     // Check if this is a file
     if (entry.type == CROW_FS_FOLDER)
-        return EISDIR;
+        return -EISDIR;
     // Read
     return read_from_file(entry.data.file, buffer_size, buffer, offset);
 }
