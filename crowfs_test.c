@@ -15,6 +15,8 @@ int test_read_write_file();
 
 int test_read_write_file_inflate();
 
+int test_resize_file();
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         puts("Enter the test number as argument");
@@ -32,6 +34,8 @@ int main(int argc, char **argv) {
             return test_read_write_file();
         case 5:
             return test_read_write_file_inflate();
+        case 6:
+            return test_resize_file();
         default:
             puts("invalid test number");
             return 1;
@@ -158,5 +162,33 @@ int test_read_write_file_inflate() {
     char read_buffer[1024] = {0};
     assert(crow_fs_read(&root, "/file", 1024, read_buffer, 0) == 100 + sizeof(to_write_buffer));
     assert(memcmp(read_buffer, expected_buffer, 1024) == 0);
+    return 0;
+}
+
+int test_resize_file() {
+    struct crow_fs_directory root;
+    crow_fs_new(&root);
+    const char to_write_buffer[] = "Hello world!";
+    assert(crow_fs_create_file(&root, "/file", 0) == 0);
+    assert(crow_fs_create_folder(&root, "/folder") == 0);
+    assert(crow_fs_write(&root, "/file", sizeof(to_write_buffer), to_write_buffer, 0) == sizeof(to_write_buffer));
+    // Inflate file
+    assert(crow_fs_resize_file(&root, "/file", 1024) == 0);
+    // Read the file again to make sure that the changes has applied
+    char read_buffer[1024] = {0}, expected_buffer[1024] = {0};
+    strcpy(expected_buffer, to_write_buffer);
+    assert(crow_fs_read(&root, "/file", sizeof(read_buffer), read_buffer, 0) == sizeof(read_buffer));
+    assert(memcmp(read_buffer, expected_buffer, sizeof(expected_buffer)) == 0);
+    // Truncate file
+    assert(crow_fs_resize_file(&root, "/file", 2) == 0);
+    memset(expected_buffer, 0, sizeof(expected_buffer));
+    memset(read_buffer, 0, sizeof(read_buffer));
+    expected_buffer[0] = to_write_buffer[0];
+    expected_buffer[1] = to_write_buffer[1];
+    assert(crow_fs_read(&root, "/file", sizeof(expected_buffer), read_buffer, 0) == 2);
+    assert(memcmp(read_buffer, expected_buffer, sizeof(expected_buffer)) == 0);
+    // Errors
+    assert(crow_fs_resize_file(&root, "/folder", 1024) == EISDIR);
+    assert(crow_fs_resize_file(&root, "/nope", 1024) == ENOENT);
     return 0;
 }

@@ -120,3 +120,12 @@ crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_si
  */
 int
 crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset);
+
+/**
+ * Resizes a file to a new size. Fills added bytes with zero.
+ * @param root The root of file system
+ * @param path The path to create the file. The last part of this path is the filename.
+ * @param new_size New size of file in bytes.
+ * @return 0 if everything is ok.
+ */
+int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t new_size);

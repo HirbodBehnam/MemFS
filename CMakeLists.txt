@@ -27,3 +27,4 @@ add_test(NAME crowfs_internal_create_folder COMMAND $<TARGET_FILE:crowfs_interna
 add_test(NAME crowfs_internal_get_entry COMMAND $<TARGET_FILE:crowfs_internal_tests> 3)
 add_test(NAME crowfs_internal_read_write_file COMMAND $<TARGET_FILE:crowfs_internal_tests> 4)
 add_test(NAME crowfs_internal_read_write_file_inflate COMMAND $<TARGET_FILE:crowfs_internal_tests> 5)
+add_test(NAME crowfs_internal_resize_file COMMAND $<TARGET_FILE:crowfs_internal_tests> 6)

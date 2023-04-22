@@ -283,3 +283,23 @@ crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_siz
     // Read
     return read_from_file(entry.data.file, buffer_size, buffer, offset);
 }
+
+int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t new_size) {
+    // Get the file
+    struct crow_fs_entry entry;
+    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    if (get_entry_status != 0)
+        return get_entry_status;
+    // TODO: read link if needed?
+    // Check if this is a file
+    if (entry.type == CROW_FS_FOLDER)
+        return EISDIR;
+    // Try to resize
+    char *new_buffer = realloc(entry.data.file->data, new_size);
+    if (new_buffer == NULL)
+        return ENOSPC;
+    // Apply
+    entry.data.file->data = new_buffer;
+    entry.data.file->size = new_size;
+    return 0;
+}
