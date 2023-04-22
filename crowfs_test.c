@@ -50,6 +50,7 @@ int test_create_file() {
     assert(crow_fs_create_file(&root, "/rng", 5) == 0);
     assert(crow_fs_create_file(&root, "/rng", 0) == EEXIST);
     assert(crow_fs_create_file(&root, "/non existing folder/file", 0) == ENOENT);
+    assert(crow_fs_create_file(&root, "/rng/rng", 0) == ENOENT);
     crow_fs_tree(&root);
     return 0;
 }
@@ -67,6 +68,8 @@ int test_create_folder() {
     assert(crow_fs_create_file(&root, "/hello/file", 0) == 0);
     assert(crow_fs_create_file(&root, "/hello/world/file", 0) == 0);
     assert(crow_fs_create_file(&root, "/hello/world/sup bro/file", 0) == 0);
+    assert(crow_fs_create_file(&root, "/hello/file/bro/file", 0) == ENOENT);
+    assert(crow_fs_create_folder(&root, "/hello/file/nope") == ENOENT);
     crow_fs_tree(&root);
     return 0;
 }
@@ -80,8 +83,13 @@ int test_get_entry() {
     assert(crow_fs_create_file(&root, "/hello/file", 10) == 0);
     assert(crow_fs_create_file(&root, "/hello/world/file", 20) == 0);
     // Get each entry in file system
-    // Hello folder
     struct crow_fs_entry entry;
+    // Root
+    assert(crow_fs_get_entry(&root, "/", &entry) == 0);
+    assert(entry.type == CROW_FS_FOLDER);
+    assert(strcmp(entry.name, "/") == 0);
+    assert(entry.data.directory->entries->next == NULL);
+    // Hello folder
     assert(crow_fs_get_entry(&root, "/hello", &entry) == 0);
     assert(entry.type == CROW_FS_FOLDER);
     assert(strcmp(entry.name, "hello") == 0);
@@ -104,6 +112,7 @@ int test_get_entry() {
     // Non existent file and folder
     assert(crow_fs_get_entry(&root, "/hello world/", &entry) == ENOENT);
     assert(crow_fs_get_entry(&root, "/hello/no", &entry) == ENOENT);
+    assert(crow_fs_get_entry(&root, "/hello/file/file", &entry) == ENOENT);
     return 0;
 }
 
@@ -139,6 +148,8 @@ int test_read_write_file() {
     // Check errors
     assert(crow_fs_read(&root, "/folder", 1024, read_buffer, 0) == -EISDIR);
     assert(crow_fs_read(&root, "/nope", 1024, read_buffer, 0) == -ENOENT);
+    assert(crow_fs_write(&root, "/folder", 1024, read_buffer, 0) == -EISDIR);
+    assert(crow_fs_write(&root, "/nope", 1024, read_buffer, 0) == -ENOENT);
     return 0;
 }
 
