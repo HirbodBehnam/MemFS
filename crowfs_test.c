@@ -17,6 +17,10 @@ int test_read_write_file_inflate();
 
 int test_resize_file();
 
+int test_delete_file();
+
+int test_delete_folder();
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         puts("Enter the test number as argument");
@@ -36,6 +40,10 @@ int main(int argc, char **argv) {
             return test_read_write_file_inflate();
         case 6:
             return test_resize_file();
+        case 7:
+            return test_delete_file();
+        case 8:
+            return test_delete_folder();
         default:
             puts("invalid test number");
             return 1;
@@ -201,5 +209,65 @@ int test_resize_file() {
     // Errors
     assert(crow_fs_resize_file(&root, "/folder", 1024) == EISDIR);
     assert(crow_fs_resize_file(&root, "/nope", 1024) == ENOENT);
+    return 0;
+}
+
+int test_delete_file() {
+    struct crow_fs_directory root;
+    crow_fs_new(&root);
+    assert(crow_fs_create_folder(&root, "/folder1") == 0);
+    assert(crow_fs_create_folder(&root, "/folder2") == 0);
+    assert(crow_fs_create_file(&root, "/file", 100) == 0);
+    assert(crow_fs_create_file(&root, "/folder1/file", 10) == 0);
+    assert(crow_fs_create_file(&root, "/folder2/file1", 10) == 0);
+    assert(crow_fs_create_file(&root, "/folder2/file2", 10) == 0);
+    assert(crow_fs_create_file(&root, "/folder2/file3", 10) == 0);
+    // Delete all files
+    assert(crow_fs_rm_file(&root, "/file") == 0);
+    assert(crow_fs_rm_file(&root, "/folder1/file") == 0);
+    assert(crow_fs_rm_file(&root, "/folder2/file1") == 0);
+    assert(crow_fs_rm_file(&root, "/folder2/file2") == 0);
+    assert(crow_fs_rm_file(&root, "/folder2/file3") == 0);
+    // Errors
+    assert(crow_fs_rm_file(&root, "/file") == ENOENT);
+    assert(crow_fs_rm_file(&root, "/folder1/file") == ENOENT);
+    assert(crow_fs_rm_file(&root, "/folder2/file3") == ENOENT);
+    assert(crow_fs_rm_file(&root, "/folder2/file2") == ENOENT);
+    assert(crow_fs_rm_file(&root, "/folder2/file1") == ENOENT);
+    // Debug
+    crow_fs_tree(&root);
+    // General errors
+    assert(crow_fs_rm_file(&root, "/folder") == ENOENT);
+    assert(crow_fs_rm_file(&root, "/folder1") == EISDIR);
+    assert(crow_fs_create_file(&root, "/file", 100) == 0);
+    assert(crow_fs_rm_file(&root, "/file/file") == ENOENT);
+    return 0;
+}
+
+int test_delete_folder() {
+    struct crow_fs_directory root;
+    crow_fs_new(&root);
+    assert(crow_fs_create_folder(&root, "/folder") == 0);
+    assert(crow_fs_create_folder(&root, "/folder/dir") == 0);
+    assert(crow_fs_create_folder(&root, "/folder/dir/help") == 0);
+    assert(crow_fs_create_folder(&root, "/folder/dir2") == 0);
+    assert(crow_fs_create_file(&root, "/folder/dir2/file", 0) == 0);
+    // Delete each folder
+    assert(crow_fs_rm_dir(&root, "/folder") == ENOTEMPTY);
+    assert(crow_fs_rm_dir(&root, "/folder/dir") == ENOTEMPTY);
+    assert(crow_fs_rm_dir(&root, "/folder/dir/help") == 0);
+    assert(crow_fs_rm_dir(&root, "/folder/dir2") == ENOTEMPTY);
+    assert(crow_fs_rm_dir(&root, "/folder/dir2/file") == ENOTDIR);
+    assert(crow_fs_rm_file(&root, "/folder/dir2/file") == 0);
+    assert(crow_fs_rm_dir(&root, "/folder/dir2") == 0);
+    assert(crow_fs_rm_dir(&root, "/folder") == ENOTEMPTY);
+    assert(crow_fs_rm_dir(&root, "/folder/dir") == 0);
+    assert(crow_fs_rm_dir(&root, "/folder") == 0);
+    assert(root.entries == NULL);
+    // General tests
+    assert(crow_fs_rm_dir(&root, "/") == EPERM);
+    assert(crow_fs_rm_dir(&root, "/nope") == ENOENT);
+    assert(crow_fs_create_file(&root, "/file", 0) == 0);
+    assert(crow_fs_rm_dir(&root, "/file/folder") == ENOENT);
     return 0;
 }

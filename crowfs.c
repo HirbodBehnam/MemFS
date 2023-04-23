@@ -242,7 +242,7 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
     // Check for errors
     if (result != 0)
         return result;
-    // Create the file
+    // Create the folder
     struct crow_fs_entry *new_entry = malloc(sizeof(struct crow_fs_entry));
     new_entry->type = CROW_FS_FOLDER;
     strcpy(new_entry->name, filename); // this is safe. I already truncated the length in iteration over path.
@@ -302,4 +302,113 @@ int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t
     entry.data.file->data = new_buffer;
     entry.data.file->size = new_size;
     return 0;
+}
+
+int crow_fs_rm_file(struct crow_fs_directory *root, const char *path) {
+    // Traverse the file system
+    int result = 0;
+    char *path_copy = strdup(path);
+    char *token;
+    char *rest = path_copy;
+    while ((token = strtok_r(rest, "/", &rest))) {
+        bool found = false;
+        bool last_part = is_empty_string(rest);
+        // Check each entry in file this directory
+        for (struct crow_fs_entry *current_entry = root->entries, *last_entry = NULL;
+             current_entry != NULL;
+             last_entry = current_entry, current_entry = current_entry->next) {
+            if (strcmp(current_entry->name, token) == 0) { // same name
+                if (last_part) { // On last part delete if this is a file
+                    if (current_entry->type == CROW_FS_FOLDER) { // don't delete folders
+                        result = EISDIR;
+                    } else { // this is a file. So delete and update link list
+                        // Delete file content
+                        free(current_entry->data.file->data);
+                        free(current_entry->data.file);
+                        // Update linked list
+                        if (last_entry == NULL) { // First file in directory
+                            root->entries = current_entry->next;
+                        } else {
+                            last_entry->next = current_entry->next;
+                        }
+                        // Free the file descriptor itself
+                        free(current_entry);
+                    }
+                    found = true;
+                } else {
+                    // Allow folders only if we are not at last part
+                    if (current_entry->type == CROW_FS_FOLDER) {
+                        root = current_entry->data.directory;
+                        found = true;
+                    }
+                }
+                break;
+            }
+        }
+        if (!found) { // cannot find the file. Just break out.
+            result = ENOENT;
+            break;
+        }
+    }
+    // Clean up
+    free(path_copy);
+    return result;
+}
+
+int crow_fs_rm_dir(struct crow_fs_directory *root, const char *path) {
+    // Check root!
+    if (strcmp(path, "/") == 0)
+        return EPERM;
+    // Traverse the file system
+    int result = 0;
+    char *path_copy = strdup(path);
+    char *token;
+    char *rest = path_copy;
+    while ((token = strtok_r(rest, "/", &rest))) {
+        bool found = false;
+        bool last_part = is_empty_string(rest);
+        // Check each entry in file this directory
+        for (struct crow_fs_entry *current_entry = root->entries, *last_entry = NULL;
+             current_entry != NULL;
+             last_entry = current_entry, current_entry = current_entry->next) {
+            if (strcmp(current_entry->name, token) == 0) { // same name
+                if (last_part) { // On last part delete if this is a file
+                    if (current_entry->type != CROW_FS_FOLDER) { // don't delete non folders
+                        result = ENOTDIR;
+                    } else { // directory
+                        // Check if folder is empty
+                        if (current_entry->data.directory->entries != NULL) { // non empty directory
+                            result = ENOTEMPTY;
+                        } else { // empty directory. Delete it
+                            // Delete directory content
+                            free(current_entry->data.directory);
+                            // Update linked list
+                            if (last_entry == NULL) { // First file in directory
+                                root->entries = current_entry->next;
+                            } else {
+                                last_entry->next = current_entry->next;
+                            }
+                            // Free the file descriptor itself
+                            free(current_entry);
+                        }
+                    }
+                    found = true;
+                } else {
+                    // Allow folders only if we are not at last part
+                    if (current_entry->type == CROW_FS_FOLDER) {
+                        root = current_entry->data.directory;
+                        found = true;
+                    }
+                }
+                break;
+            }
+        }
+        if (!found) { // cannot find the file. Just break out.
+            result = ENOENT;
+            break;
+        }
+    }
+    // Clean up
+    free(path_copy);
+    return result;
 }

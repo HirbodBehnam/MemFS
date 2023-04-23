@@ -129,3 +129,19 @@ crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_siz
  * @return 0 if everything is ok.
  */
 int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t new_size);
+
+/**
+ * Removes a single file
+ * @param root The root of file system
+ * @param path Path of file to delete. This must be a file or link. Not a folder
+ * @return 0 if deletion was ok.
+ */
+int crow_fs_rm_file(struct crow_fs_directory *root, const char *path);
+
+/**
+ * Removes an empty directory
+ * @param root The root of file system
+ * @param path Folder to delete. Must be an empty folder
+ * @return 0 if deletion was ok.
+ */
+int crow_fs_rm_dir(struct crow_fs_directory *root, const char *path);
