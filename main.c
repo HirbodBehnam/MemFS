@@ -131,10 +131,13 @@ static int crow_fuse_rmfile(const char *path) {
 }
 
 static int crow_fuse_create_file(const char *path, mode_t mode, struct fuse_file_info *fi) {
+    (void) mode;
+    (void) fi;
     return -crow_fs_create_file(&fs_root, path, 0);
 }
 
 static int crow_fuse_create_directory(const char *path, mode_t mode) {
+    (void) mode;
     return -crow_fs_create_folder(&fs_root, path);
 }
 
