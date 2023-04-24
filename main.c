@@ -12,7 +12,6 @@
 static struct crow_fs_directory fs_root;
 
 static struct options {
-    int show_help;
 } options;
 
 static const struct fuse_opt option_spec[] = {
@@ -131,6 +130,14 @@ static int crow_fuse_rmfile(const char *path) {
     return -crow_fs_rm_file(&fs_root, path);
 }
 
+static int crow_fuse_create_file(const char *path, mode_t mode, struct fuse_file_info *fi) {
+    return -crow_fs_create_file(&fs_root, path, 0);
+}
+
+static int crow_fuse_create_directory(const char *path, mode_t mode) {
+    return -crow_fs_create_folder(&fs_root, path);
+}
+
 static const struct fuse_operations crow_fuse_operations = {
         .init = crow_fuse_init,
         .getattr = crow_fuse_getattr,
@@ -140,6 +147,8 @@ static const struct fuse_operations crow_fuse_operations = {
         .write = crow_fuse_write,
         .rmdir = crow_fuse_rmdir,
         .unlink = crow_fuse_rmfile,
+        .create = crow_fuse_create_file,
+        .mkdir = crow_fuse_create_directory
 };
 
 int main(int argc, char *argv[]) {
