@@ -112,11 +112,14 @@ static int crow_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler
 }
 
 static int crow_fuse_open(const char *path, struct fuse_file_info *fi) {
-    (void) fi;
     // Check if it exists
     struct crow_fs_entry entry;
-    pthread_rwlock_rdlock(&fs_mutex);
+    pthread_rwlock_wrlock(&fs_mutex);
     int result = crow_fs_get_entry(&fs_root, path, &entry);
+    if (result == ENOENT && (fi->flags & O_CREAT) != 0) { // if specified, create the file
+        result = -crow_fs_create_file(&fs_root, path, 0);
+        goto end;
+    }
     if (result != 0) {
         result = -result;
         goto end;
@@ -124,6 +127,11 @@ static int crow_fuse_open(const char *path, struct fuse_file_info *fi) {
     // We don't allow dirs
     if (entry.type == CROW_FS_FOLDER) {
         result = -EISDIR;
+        goto end;
+    }
+    // Truncate the file if needed
+    if ((fi->flags & O_TRUNC) != 0) {
+        result = -crow_fs_resize_file(&fs_root, path, 0);
         goto end;
     }
     end:

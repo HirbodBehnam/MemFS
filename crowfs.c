@@ -296,7 +296,7 @@ int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t
         return EISDIR;
     // Try to resize
     char *new_buffer = realloc(entry.data.file->data, new_size);
-    if (new_buffer == NULL)
+    if (new_buffer == NULL && new_size != 0)
         return ENOSPC;
     // Apply
     entry.data.file->data = new_buffer;
