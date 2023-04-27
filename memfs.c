@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "crowfs.h"
+#include "memfs.h"
 
 #define MIN(x, y) ((x < y) ? (x) : (y))
 
@@ -21,8 +21,8 @@ static void indent_tree(int depth) {
         printf("|   ");
 }
 
-static void crow_fs_tree_internal(const struct crow_fs_directory *root, int depth) {
-    for (struct crow_fs_entry *current_entry = root->entries;
+static void mem_fs_tree_internal(const struct mem_fs_directory *root, int depth) {
+    for (struct mem_fs_entry *current_entry = root->entries;
          current_entry != NULL;
          current_entry = current_entry->next) {
         indent_tree(depth);
@@ -30,7 +30,7 @@ static void crow_fs_tree_internal(const struct crow_fs_directory *root, int dept
         switch (current_entry->type) {
             case CROW_FS_FOLDER:
                 printf("%s\n", current_entry->name);
-                crow_fs_tree_internal(current_entry->data.directory, depth + 1);
+                mem_fs_tree_internal(current_entry->data.directory, depth + 1);
                 break;
             case CROW_FS_FILE:
                 printf("%s (%zu bytes)\n", current_entry->name, current_entry->data.file->size);
@@ -50,7 +50,7 @@ static void crow_fs_tree_internal(const struct crow_fs_directory *root, int dept
  * @param offset Offset to write to
  * @return Bytes written or negative value on error
  */
-static int write_to_file(struct crow_fs_file *file, size_t buffer_size, const char *buffer, off_t offset) {
+static int write_to_file(struct mem_fs_file *file, size_t buffer_size, const char *buffer, off_t offset) {
     // Check size of buffer
     if (offset + buffer_size > file->size) {
         // Try to make the buffer bigger
@@ -73,7 +73,7 @@ static int write_to_file(struct crow_fs_file *file, size_t buffer_size, const ch
  * @param offset The offset of the file to read to
  * @return Bytes read. This function is error free
  */
-static int read_from_file(const struct crow_fs_file *file, size_t buffer_size, char *buffer, off_t offset) {
+static int read_from_file(const struct mem_fs_file *file, size_t buffer_size, char *buffer, off_t offset) {
     // Bound check
     if (offset > file->size)
         return 0;
@@ -83,16 +83,16 @@ static int read_from_file(const struct crow_fs_file *file, size_t buffer_size, c
     return (int) to_copy_size;
 }
 
-void crow_fs_new(struct crow_fs_directory *root) {
+void mem_fs_new(struct mem_fs_directory *root) {
     root->entries = NULL; // we only set the root to null. (no files in this folder)
 }
 
-void crow_fs_tree(const struct crow_fs_directory *root) {
+void mem_fs_tree(const struct mem_fs_directory *root) {
     printf("+-- /\n");
-    crow_fs_tree_internal(root, 1);
+    mem_fs_tree_internal(root, 1);
 }
 
-int crow_fs_get_entry(struct crow_fs_directory *root, const char *path, struct crow_fs_entry *entry) {
+int mem_fs_get_entry(struct mem_fs_directory *root, const char *path, struct mem_fs_entry *entry) {
     // Check literal root folder
     if (strcmp("/", path) == 0) {
         strcpy(entry->name, "/");
@@ -109,7 +109,7 @@ int crow_fs_get_entry(struct crow_fs_directory *root, const char *path, struct c
         bool found = false;
         bool last_part = is_empty_string(rest);
         // Check each entry in file this directory
-        for (struct crow_fs_entry *current_entry = root->entries;
+        for (struct mem_fs_entry *current_entry = root->entries;
              current_entry != NULL;
              current_entry = current_entry->next) {
             if (strcmp(current_entry->name, token) == 0) { // same name
@@ -137,7 +137,7 @@ int crow_fs_get_entry(struct crow_fs_directory *root, const char *path, struct c
     return result;
 }
 
-int crow_fs_create_file(struct crow_fs_directory *root, const char *path, size_t file_size) {
+int mem_fs_create_file(struct mem_fs_directory *root, const char *path, size_t file_size) {
     int result = 0;
     char filename[MAX_FILE_NAME + 1] = {'\0'};
     // Traverse the file system
@@ -148,7 +148,7 @@ int crow_fs_create_file(struct crow_fs_directory *root, const char *path, size_t
         bool found = false;
         bool last_part = is_empty_string(rest);
         // Check each entry in file this directory
-        for (struct crow_fs_entry *current_entry = root->entries;
+        for (struct mem_fs_entry *current_entry = root->entries;
              current_entry != NULL;
              current_entry = current_entry->next) {
             // TODO: at the last step, we shall truncate the token.
@@ -184,10 +184,10 @@ int crow_fs_create_file(struct crow_fs_directory *root, const char *path, size_t
     if (result != 0)
         return result;
     // Create the file
-    struct crow_fs_entry *new_entry = malloc(sizeof(struct crow_fs_entry));
+    struct mem_fs_entry *new_entry = malloc(sizeof(struct mem_fs_entry));
     new_entry->type = CROW_FS_FILE;
     strcpy(new_entry->name, filename); // this is safe. I already truncated the length in iteration over path.
-    new_entry->data.file = malloc(sizeof(struct crow_fs_file));
+    new_entry->data.file = malloc(sizeof(struct mem_fs_file));
     new_entry->data.file->data = calloc(file_size, sizeof(char));
     new_entry->data.file->size = file_size;
     // Add it to directory
@@ -196,7 +196,7 @@ int crow_fs_create_file(struct crow_fs_directory *root, const char *path, size_t
     return 0;
 }
 
-int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
+int mem_fs_create_folder(struct mem_fs_directory *root, const char *path) {
     int result = 0;
     char filename[MAX_FILE_NAME + 1] = {'\0'};
     // Traverse the file system
@@ -207,7 +207,7 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
         bool found = false;
         bool last_part = is_empty_string(rest);
         // Check each entry in file this directory
-        for (struct crow_fs_entry *current_entry = root->entries;
+        for (struct mem_fs_entry *current_entry = root->entries;
              current_entry != NULL;
              current_entry = current_entry->next) {
             // TODO: at the last step, we shall truncate the token.
@@ -243,10 +243,10 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
     if (result != 0)
         return result;
     // Create the folder
-    struct crow_fs_entry *new_entry = malloc(sizeof(struct crow_fs_entry));
+    struct mem_fs_entry *new_entry = malloc(sizeof(struct mem_fs_entry));
     new_entry->type = CROW_FS_FOLDER;
     strcpy(new_entry->name, filename); // this is safe. I already truncated the length in iteration over path.
-    new_entry->data.directory = malloc(sizeof(struct crow_fs_directory));
+    new_entry->data.directory = malloc(sizeof(struct mem_fs_directory));
     new_entry->data.directory->entries = NULL;
     // Add it to directory
     new_entry->next = root->entries;
@@ -255,10 +255,10 @@ int crow_fs_create_folder(struct crow_fs_directory *root, const char *path) {
 }
 
 int
-crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_size, const char *buffer, off_t offset) {
+mem_fs_write(struct mem_fs_directory *root, const char *path, size_t buffer_size, const char *buffer, off_t offset) {
     // Get the file
-    struct crow_fs_entry entry;
-    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    struct mem_fs_entry entry;
+    int get_entry_status = mem_fs_get_entry(root, path, &entry);
     if (get_entry_status != 0)
         return -get_entry_status;
     // TODO: read link if needed?
@@ -270,10 +270,10 @@ crow_fs_write(struct crow_fs_directory *root, const char *path, size_t buffer_si
 }
 
 int
-crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset) {
+mem_fs_read(struct mem_fs_directory *root, const char *path, size_t buffer_size, char *buffer, off_t offset) {
     // Get the file
-    struct crow_fs_entry entry;
-    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    struct mem_fs_entry entry;
+    int get_entry_status = mem_fs_get_entry(root, path, &entry);
     if (get_entry_status != 0)
         return -get_entry_status;
     // TODO: read link if needed?
@@ -284,10 +284,10 @@ crow_fs_read(struct crow_fs_directory *root, const char *path, size_t buffer_siz
     return read_from_file(entry.data.file, buffer_size, buffer, offset);
 }
 
-int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t new_size) {
+int mem_fs_resize_file(struct mem_fs_directory *root, const char *path, size_t new_size) {
     // Get the file
-    struct crow_fs_entry entry;
-    int get_entry_status = crow_fs_get_entry(root, path, &entry);
+    struct mem_fs_entry entry;
+    int get_entry_status = mem_fs_get_entry(root, path, &entry);
     if (get_entry_status != 0)
         return get_entry_status;
     // TODO: read link if needed?
@@ -304,7 +304,7 @@ int crow_fs_resize_file(struct crow_fs_directory *root, const char *path, size_t
     return 0;
 }
 
-int crow_fs_rm_file(struct crow_fs_directory *root, const char *path) {
+int mem_fs_rm_file(struct mem_fs_directory *root, const char *path) {
     // Traverse the file system
     int result = 0;
     char *path_copy = strdup(path);
@@ -314,7 +314,7 @@ int crow_fs_rm_file(struct crow_fs_directory *root, const char *path) {
         bool found = false;
         bool last_part = is_empty_string(rest);
         // Check each entry in file this directory
-        for (struct crow_fs_entry *current_entry = root->entries, *last_entry = NULL;
+        for (struct mem_fs_entry *current_entry = root->entries, *last_entry = NULL;
              current_entry != NULL;
              last_entry = current_entry, current_entry = current_entry->next) {
             if (strcmp(current_entry->name, token) == 0) { // same name
@@ -355,7 +355,7 @@ int crow_fs_rm_file(struct crow_fs_directory *root, const char *path) {
     return result;
 }
 
-int crow_fs_rm_dir(struct crow_fs_directory *root, const char *path) {
+int mem_fs_rm_dir(struct mem_fs_directory *root, const char *path) {
     // Check root!
     if (strcmp(path, "/") == 0)
         return EPERM;
@@ -368,7 +368,7 @@ int crow_fs_rm_dir(struct crow_fs_directory *root, const char *path) {
         bool found = false;
         bool last_part = is_empty_string(rest);
         // Check each entry in file this directory
-        for (struct crow_fs_entry *current_entry = root->entries, *last_entry = NULL;
+        for (struct mem_fs_entry *current_entry = root->entries, *last_entry = NULL;
              current_entry != NULL;
              last_entry = current_entry, current_entry = current_entry->next) {
             if (strcmp(current_entry->name, token) == 0) { // same name

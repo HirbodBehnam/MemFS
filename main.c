@@ -5,12 +5,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
-#include "crowfs.h"
+#include "memfs.h"
 
 /**
  * The root of file system
  */
-static struct crow_fs_directory fs_root;
+static struct mem_fs_directory fs_root;
 static pthread_rwlock_t fs_mutex = PTHREAD_RWLOCK_INITIALIZER;
 
 static struct options {
@@ -20,20 +20,20 @@ static const struct fuse_opt option_spec[] = {
         FUSE_OPT_END
 };
 
-static void *crow_fuse_init(struct fuse_conn_info *conn,
+static void *mem_fuse_init(struct fuse_conn_info *conn,
                             struct fuse_config *cfg) {
     (void) conn;
     cfg->kernel_cache = 1;
     return NULL;
 }
 
-static int crow_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
+static int mem_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
     (void) fi;
     memset(stbuf, 0, sizeof(struct stat));
     // Get the entry from file list
-    struct crow_fs_entry entry;
+    struct mem_fs_entry entry;
     pthread_rwlock_rdlock(&fs_mutex);
-    int result = crow_fs_get_entry(&fs_root, path, &entry);
+    int result = mem_fs_get_entry(&fs_root, path, &entry);
     if (result != 0) {
         result = -result;
         goto end;
@@ -58,7 +58,7 @@ static int crow_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_f
     return result;
 }
 
-static int crow_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+static int mem_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                              off_t offset, struct fuse_file_info *fi,
                              enum fuse_readdir_flags flags) {
     (void) fi;
@@ -66,9 +66,9 @@ static int crow_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler
     (void) offset;
     printf("READDIR: %s - Offset: %ld\n", path, offset);
     // Get the folder
-    struct crow_fs_entry entry;
+    struct mem_fs_entry entry;
     pthread_rwlock_rdlock(&fs_mutex);
-    int result = crow_fs_get_entry(&fs_root, path, &entry);
+    int result = mem_fs_get_entry(&fs_root, path, &entry);
     if (result != 0) {
         result = -result;
         goto end;
@@ -81,7 +81,7 @@ static int crow_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
     // Skip the offset dirs
-    struct crow_fs_entry *folder_content = entry.data.directory->entries;
+    struct mem_fs_entry *folder_content = entry.data.directory->entries;
     // Put them in?
     while (folder_content != NULL) {
         struct stat stbuf = {};
@@ -111,13 +111,13 @@ static int crow_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler
     return result;
 }
 
-static int crow_fuse_open(const char *path, struct fuse_file_info *fi) {
+static int mem_fuse_open(const char *path, struct fuse_file_info *fi) {
     // Check if it exists
-    struct crow_fs_entry entry;
+    struct mem_fs_entry entry;
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = crow_fs_get_entry(&fs_root, path, &entry);
+    int result = mem_fs_get_entry(&fs_root, path, &entry);
     if (result == ENOENT && (fi->flags & O_CREAT) != 0) { // if specified, create the file
-        result = -crow_fs_create_file(&fs_root, path, 0);
+        result = -mem_fs_create_file(&fs_root, path, 0);
         goto end;
     }
     if (result != 0) {
@@ -131,7 +131,7 @@ static int crow_fuse_open(const char *path, struct fuse_file_info *fi) {
     }
     // Truncate the file if needed
     if ((fi->flags & O_TRUNC) != 0) {
-        result = -crow_fs_resize_file(&fs_root, path, 0);
+        result = -mem_fs_resize_file(&fs_root, path, 0);
         goto end;
     }
     end:
@@ -139,76 +139,76 @@ static int crow_fuse_open(const char *path, struct fuse_file_info *fi) {
     return result;
 }
 
-static int crow_fuse_read(const char *path, char *buf, size_t size, off_t offset,
+static int mem_fuse_read(const char *path, char *buf, size_t size, off_t offset,
                           struct fuse_file_info *fi) {
     (void) fi;
     pthread_rwlock_rdlock(&fs_mutex);
-    int result = crow_fs_read(&fs_root, path, size, buf, offset);
+    int result = mem_fs_read(&fs_root, path, size, buf, offset);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static int crow_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
+static int mem_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
                            struct fuse_file_info *fi) {
     (void) fi;
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = crow_fs_write(&fs_root, path, size, buf, offset);
+    int result = mem_fs_write(&fs_root, path, size, buf, offset);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static int crow_fuse_rmdir(const char *path) {
+static int mem_fuse_rmdir(const char *path) {
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = -crow_fs_rm_dir(&fs_root, path);
+    int result = -mem_fs_rm_dir(&fs_root, path);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static int crow_fuse_rmfile(const char *path) {
+static int mem_fuse_rmfile(const char *path) {
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = -crow_fs_rm_file(&fs_root, path);
+    int result = -mem_fs_rm_file(&fs_root, path);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static int crow_fuse_create_file(const char *path, mode_t mode, struct fuse_file_info *fi) {
+static int mem_fuse_create_file(const char *path, mode_t mode, struct fuse_file_info *fi) {
     (void) mode;
     (void) fi;
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = -crow_fs_create_file(&fs_root, path, 0);
+    int result = -mem_fs_create_file(&fs_root, path, 0);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static int crow_fuse_create_directory(const char *path, mode_t mode) {
+static int mem_fuse_create_directory(const char *path, mode_t mode) {
     (void) mode;
     pthread_rwlock_wrlock(&fs_mutex);
-    int result = -crow_fs_create_folder(&fs_root, path);
+    int result = -mem_fs_create_folder(&fs_root, path);
     pthread_rwlock_unlock(&fs_mutex);
     return result;
 }
 
-static const struct fuse_operations crow_fuse_operations = {
-        .init = crow_fuse_init,
-        .getattr = crow_fuse_getattr,
-        .readdir = crow_fuse_readdir,
-        .open = crow_fuse_open,
-        .read = crow_fuse_read,
-        .write = crow_fuse_write,
-        .rmdir = crow_fuse_rmdir,
-        .unlink = crow_fuse_rmfile,
-        .create = crow_fuse_create_file,
-        .mkdir = crow_fuse_create_directory,
+static const struct fuse_operations mem_fuse_operations = {
+        .init = mem_fuse_init,
+        .getattr = mem_fuse_getattr,
+        .readdir = mem_fuse_readdir,
+        .open = mem_fuse_open,
+        .read = mem_fuse_read,
+        .write = mem_fuse_write,
+        .rmdir = mem_fuse_rmdir,
+        .unlink = mem_fuse_rmfile,
+        .create = mem_fuse_create_file,
+        .mkdir = mem_fuse_create_directory,
 };
 
 int main(int argc, char *argv[]) {
     // Initiate the file system
-    crow_fs_new(&fs_root);
+    mem_fs_new(&fs_root);
     // Initiate fuse
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
         return 1;
-    int ret = fuse_main(args.argc, args.argv, &crow_fuse_operations, NULL);
+    int ret = fuse_main(args.argc, args.argv, &mem_fuse_operations, NULL);
     fuse_opt_free_args(&args);
     return ret;
 }
