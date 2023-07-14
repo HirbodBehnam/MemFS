@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fuse.h>
 #include <string.h>
-#include <stdio.h>
 #include <pthread.h>
 #include "memfs.h"
 
@@ -21,7 +20,7 @@ static const struct fuse_opt option_spec[] = {
 };
 
 static void *mem_fuse_init(struct fuse_conn_info *conn,
-                            struct fuse_config *cfg) {
+                           struct fuse_config *cfg) {
     (void) conn;
     cfg->kernel_cache = 1;
     return NULL;
@@ -59,12 +58,11 @@ static int mem_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_fi
 }
 
 static int mem_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                             off_t offset, struct fuse_file_info *fi,
-                             enum fuse_readdir_flags flags) {
+                            off_t offset, struct fuse_file_info *fi,
+                            enum fuse_readdir_flags flags) {
     (void) fi;
     (void) flags;
     (void) offset;
-    printf("READDIR: %s - Offset: %ld\n", path, offset);
     // Get the folder
     struct mem_fs_entry entry;
     pthread_rwlock_rdlock(&fs_mutex);
@@ -140,7 +138,7 @@ static int mem_fuse_open(const char *path, struct fuse_file_info *fi) {
 }
 
 static int mem_fuse_read(const char *path, char *buf, size_t size, off_t offset,
-                          struct fuse_file_info *fi) {
+                         struct fuse_file_info *fi) {
     (void) fi;
     pthread_rwlock_rdlock(&fs_mutex);
     int result = mem_fs_read(&fs_root, path, size, buf, offset);
@@ -149,7 +147,7 @@ static int mem_fuse_read(const char *path, char *buf, size_t size, off_t offset,
 }
 
 static int mem_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
-                           struct fuse_file_info *fi) {
+                          struct fuse_file_info *fi) {
     (void) fi;
     pthread_rwlock_wrlock(&fs_mutex);
     int result = mem_fs_write(&fs_root, path, size, buf, offset);
